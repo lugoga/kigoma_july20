@@ -1,0 +1,12 @@
+"0","stations = read_csv(""stations_sonde_positions.csv"")"
+"2","Parsed with column specification:
+cols(
+  site = [31mcol_character()[39m,
+  lon = [32mcol_double()[39m,
+  lat = [32mcol_double()[39m
+)
+"
+"0","stations %>% st_as_sf(coords = c(""lon"", ""lat"")) %>%"
+"0","  st_set_crs(4326)%>% "
+"0","  # slice(2,7,11) %>%"
+"0","  mapview::mapview()"

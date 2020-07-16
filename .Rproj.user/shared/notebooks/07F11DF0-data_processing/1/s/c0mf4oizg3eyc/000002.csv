@@ -1,0 +1,7 @@
+"0",""
+"0","files = dir(path = ""FISH STAT/"", "
+"0","            all.files = TRUE, "
+"0","            include.dirs = TRUE, "
+"0","            recursive = TRUE, "
+"0","            full.names = TRUE)"
+"0",""

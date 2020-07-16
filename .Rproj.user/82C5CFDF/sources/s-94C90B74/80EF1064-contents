@@ -1,0 +1,251 @@
+---
+title: "environmental data"
+author: "Masumbuko Semba"
+date: "7/15/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+require(tidyverse)
+require(sf)
+```
+
+
+```{r, eval=FALSE}
+
+stations = tibble(site = c("LTK", "LTM", "LT1", "LT2", "LT3", "LT4", "LT5", "LT6", "LT7", "LT8", "LT9"),
+                  lon = c(29.564, 29.729, 29.58879, 29.60630, 29.62239, 29.64384, 29.67138, 
+                          29.67646, 29.69238, 29.70597, 29.72909),
+                  lat = c(-4.863, -5.923, -4.97311, -5.08071, -5.19253, -5.30058, -5.39792, 
+                          -5.51419, -5.62357, -5.73875, -5.8524833))
+
+stations %>% write_csv("stations_sonde_positions.csv")
+
+stations 
+```
+
+```{r}
+stations = read_csv("stations_sonde_positions.csv")
+
+stations %>% st_as_sf(coords = c("lon", "lat")) %>%
+  st_set_crs(4326)%>% 
+  # slice(2,7,11) %>%
+  mapview::mapview()
+```
+
+
+
+## LT1-9
+
+```{r}
+sonde.files = dir(path = "cleat_data/Exo_Sonde/LT1-9/", pattern = ".xls", recursive = TRUE, full.names = TRUE)
+
+sonde.file.names = sonde.files %>% 
+  as_tibble() %>% 
+  separate(col = value, into = c('a', "b"), sep = "//") %>% 
+  separate(col = b, into = c("site", "a"), sep = 3) %>% 
+  select(-a)
+
+sonde.file.names.locations = sonde.file.names %>% left_join(stations)
+```
+
+```{r}
+
+
+
+sonde = readxl::read_excel(sonde.files[3], skip = 23) %>% 
+  janitor::clean_names()
+
+var.match = names(sonde)
+
+sonde.df.lt1 = list()
+
+for (i in 1:length(sonde.files)){
+  
+sonde = readxl::read_excel(sonde.files[i], skip = 23) %>% 
+  janitor::clean_names() 
+
+if (names(sonde) == var.match){
+  
+  sonde = sonde %>%
+    select(var.match) 
+
+sonde.df.lt1[[i]] = sonde%>%
+  mutate(depth_m = as.numeric(depth_m))%>%
+  filter(depth_m >= 0) %>% 
+  # mutate(lon = stations %>% filter(site == "LT1") %>% select(lon) %>% pull(lon),
+  #        lat = stations %>% filter(site == "LT1") %>% select(lat) %>% pull(lat),
+  #        site = stations %>% filter(site == "LT1") %>% select(site) %>% pull(site)) %>% 
+  slice(1:which.max((sonde$depth_m))) %>% mutate(cast = "downcast") %>%
+  bind_rows(sonde %>% slice(which.max((sonde$depth_m))+1:nrow(sonde)) %>% mutate(cast = "upcast")) %>%
+  bind_cols(sonde.file.names.locations %>% slice(i)) %>%
+  select(site,lon,lat,cast,depth_m, everything()) 
+
+}else{
+  sonde = readxl::read_excel(sonde.files[i], skip = 22) %>% 
+  janitor::clean_names()
+  
+ sonde = sonde %>%
+    select(var.match)
+
+sonde.df.lt1[[i]] = sonde%>%
+  mutate(depth_m = as.numeric(depth_m))%>%
+  filter(depth_m >= 0) %>% 
+  # mutate(lon = stations %>% filter(site == "LT1") %>% select(lon) %>% pull(lon),
+  #        lat = stations %>% filter(site == "LT1") %>% select(lat) %>% pull(lat),
+  #        site = stations %>% filter(site == "LT1") %>% select(site) %>% pull(site)) %>% 
+  slice(1:which.max((sonde$depth_m))) %>% mutate(cast = "downcast") %>%
+  bind_rows(sonde %>% slice(which.max((sonde$depth_m))+1:nrow(sonde)) %>% mutate(cast = "upcast")) %>%
+  bind_cols(sonde.file.names.locations %>% slice(i)) %>%
+  select(site,lon,lat,cast,depth_m, everything()) 
+}
+
+
+}
+
+## fail sonde.files[189]: "cleat_data/Exo_Sonde/LT1-9//LT9 Data/April 2017/LT9_EXOSD_05032017.xlsx" has issues, someone temperatured and changed some variables in depths both in meters and psi. I have removed them and leave these cells black. 
+
+
+  
+```
+
+Stitch the LT files to form one large dataset with all the files for each station
+
+```{r}
+sonde.lt = sonde.df.lt1 %>% 
+  bind_rows()
+```
+
+
+## LTM and LTK
+
+
+```{r}
+## The files from LTM and LTK folder were saved in xls,xlxs and csv format, I converted csv to xlxs format before processing. 
+
+sonde.files = dir(path = "cleat_data/Exo_Sonde/main/", pattern = ".xls", 
+                  recursive = TRUE, full.names = TRUE)
+
+## we noticed a file with index 2 has problem and must be removed in the list
+sonde.files = sonde.files[-2]
+
+## because the files names are a bit trick, I had to extract the source of each files and later assign it to the appropriate variable in each file within a loop
+file.site.main = sonde.files %>% 
+  as_tibble() %>% 
+  separate(col = value, into = c("a", "b"), sep = "//") %>% 
+  separate(col = b, into = c("site", "b"), sep = 3) %>% 
+  select(site) 
+
+file.site.main.location = file.site.main %>% left_join(stations)
+
+
+```
+
+
+```{r}
+# sonde = readxl::read_excel(sonde.files[3], skip = 23) %>% 
+#   janitor::clean_names()
+# 
+# var.match = names(sonde)
+
+main = list()
+
+for (i in 1:length(sonde.files)){
+  
+sonde = readxl::read_excel(sonde.files[i], skip = 23) %>% 
+  janitor::clean_names() 
+
+sonde2 = readxl::read_excel(sonde.files[i], skip = 22) %>% 
+  janitor::clean_names()
+
+if (names(sonde) == var.match){
+  
+  sonde = sonde %>%
+    select(var.match) 
+
+main[[i]] = sonde%>%
+  mutate(depth_m = as.numeric(depth_m)) %>%
+  filter(depth_m >= 0) %>% 
+  # mutate(lon = stations %>% filter(site == "LT1") %>% select(lon) %>% pull(lon),
+  #        lat = stations %>% filter(site == "LT1") %>% select(lat) %>% pull(lat),
+  #        site = stations %>% filter(site == "LT1") %>% select(site) %>% pull(site)) %>% 
+  slice(1:which.max((sonde$depth_m))) %>% mutate(cast = "downcast") %>%
+  bind_rows(sonde %>% slice(which.max((sonde$depth_m))+1:nrow(sonde)) %>% mutate(cast = "upcast"))%>%
+  bind_cols(file.site.main.location %>% slice(i)) %>%
+  select(site,lon,lat,cast,depth_m, everything()) 
+
+} else if((names(sonde2) == var.match)){
+  
+ sonde = sonde2 %>%
+    select(var.match)
+
+main[[i]] = sonde%>%
+  mutate(depth_m = as.numeric(depth_m)) %>%
+  filter(depth_m >= 0) %>% 
+  # mutate(lon = stations %>% filter(site == "LT1") %>% select(lon) %>% pull(lon),
+  #        lat = stations %>% filter(site == "LT1") %>% select(lat) %>% pull(lat),
+  #        site = stations %>% filter(site == "LT1") %>% select(site) %>% pull(site)) %>% 
+  slice(1:which.max((sonde$depth_m))) %>% mutate(cast = "downcast") %>%
+  bind_rows(sonde %>% slice(which.max((sonde$depth_m))+1:nrow(sonde)) %>% mutate(cast = "upcast")) %>%
+  bind_cols(file.site.main.location %>% slice(i)) %>%
+  select(site,lon,lat,cast,depth_m, everything()) 
+
+} else {
+  print(paste("Index ",i, sonde.files[i], " FAIL because of mismatch of variable names, hence are opted out of the list"))
+}
+
+
+}
+
+# 2,6,10,15,23,27,28,32,35,37,39,42,43,47, ## because we removed file in index 2, every index will be less by one digit
+  
+```
+
+remove the file we opted them from the list, because they are listed as NULL and they will throw an error message when we bind them. Once we have cleaned the list dataset, we can bind them
+
+```{r}
+## 
+main.clean = Filter(Negate(is.null), main)
+
+main.clean = main.clean %>% bind_rows()
+```
+
+
+Before we stitch the LTK and LTM file with LT1--9, we need first to check if the variables are the same. We can do that using a `compare_df_cols_same` function from **janitor** package.
+
+```{r}
+
+janitor::compare_df_cols_same(sonde.lt, main.clean)
+
+
+```
+
+The output notify us that the two dataset have the same column names, hence we can go ahead and stitch the two dataset using a `bind_rows` function from **dplyr** package
+
+```{r}
+sonde.dataset = sonde.lt %>% 
+  bind_rows(main.clean)
+```
+
+```{r}
+
+ # sonde.dataset %>% names
+
+sonde.dataset.clean = sonde.dataset %>% 
+  select(site,lon,lat, date = 6, time = 7, depth_m, pressure_psi = 29, cast, ph = 13, ph_mv = 14, 
+         orp_mv = 15, chlorophyll_rfu = 17, chlorophyll_mgl = 18, bga_pc_rfu =19, bga_pc_mgl = 20,  
+         temperature = 21, conductivity = 22, salinity = 24, tds_mgl =26, do_percent_sat = 27, do_mgl = 28)%>%
+  separate(col = time, into = c("a", "time"), sep = " ") %>%
+  mutate(time = anytime::anytime(time)) %>%
+  select(-a)%>%
+  filter(depth_m >=0) %>% arrange(date, site, cast) 
+```
+
+```{r}
+sonde.dataset.clean 
+```
+

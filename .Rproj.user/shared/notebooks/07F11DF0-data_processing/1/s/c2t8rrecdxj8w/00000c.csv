@@ -1,0 +1,7 @@
+"0","file.meta = files %>% as_tibble() %>% "
+"0","  separate(col = value, into = c(""a"", ""site""), sep = ""/"") %>%"
+"0","  separate(col = site, into = c(""a"", ""site""), sep = ""-"") %>%"
+"0","  separate(col = site, into = c(""site"", ""date""), sep = "" "") %>%"
+"0","  separate(col = date, into = c(""date"", ""a""), sep = -4) %>%"
+"0","  mutate(date = lubridate::mdy(date)) %>%"
+"0","  select(1:2)"

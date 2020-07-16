@@ -1,0 +1,8 @@
+"0",""
+"0"," # sonde.dataset %>% names"
+"0",""
+"0","sonde.dataset.clean = sonde.dataset %>% "
+"0","  select(site,lon,lat, date = 6, time = 7, depth_m, pressure_psi = 29, cast, ph = 13, ph_mv = 14, "
+"0","         orp_mv = 15, chlorophyll_rfu = 17, chlorophyll_mgl = 18, bga_pc_rfu =19, bga_pc_mgl = 20,  "
+"0","         temperature = 21, conductivity = 22, salinity = 24, tds_mgl =26, do_percent_sat = 27, do_mgl = 28)%>%"
+"0","  filter(depth_m >=0) %>% arrange(date, site, cast)"
