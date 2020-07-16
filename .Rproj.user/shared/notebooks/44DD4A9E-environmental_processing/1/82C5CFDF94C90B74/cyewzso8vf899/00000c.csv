@@ -1,0 +1,6 @@
+"0","sonde.dataset.clean %>%
+  group_by(site, date) %>%
+  summarise(index = which.max(depth_m))
+"
+"2","`summarise()` regrouping output by 'site' (override with `.groups` argument)
+"

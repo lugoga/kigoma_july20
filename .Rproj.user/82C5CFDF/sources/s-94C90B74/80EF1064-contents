@@ -240,12 +240,23 @@ sonde.dataset.clean = sonde.dataset %>%
          orp_mv = 15, chlorophyll_rfu = 17, chlorophyll_mgl = 18, bga_pc_rfu =19, bga_pc_mgl = 20,  
          temperature = 21, conductivity = 22, salinity = 24, tds_mgl =26, do_percent_sat = 27, do_mgl = 28)%>%
   separate(col = time, into = c("a", "time"), sep = " ") %>%
-  mutate(time = anytime::anytime(time)) %>%
-  select(-a)%>%
-  filter(depth_m >=0) %>% arrange(date, site, cast) 
+  filter(depth_m >=0) %>% arrange(date, site, cast) %>% 
+  # unite(col = "datetime", c("date", "time"), sep = " ") %>% 
+  # mutate(datetime = lubridate::ymd_hms(datetime))%>%
+  select(-a)
+
+# sonde.dataset.clean %>% 
+#   write_csv("sonde_dataset_cleaned.csv")
 ```
 
 ```{r}
-sonde.dataset.clean 
+sonde.dataset.clean %>%
+  group_by(site, date) %>%
+  summarise(index = which.max(depth_m))
+```
+
+```{r}
+sonde.dataset.clean %>%
+  filter(site == "LT1") %>% distinct(lubridate::as_date(datetime))
 ```
 
