@@ -1,0 +1,13 @@
+name: kigoma-july
+title: kigoma-july
+username:
+account: semba
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 2577684
+bundleId: 3397963
+url: https://semba.shinyapps.io/kigoma-july/
+when: 1594869061.69999
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: data_processing.Rmd|environmental_processing.Rmd|FISH STAT & BIO(Corrected on oct 2005).zip|README.md|sonde_dataset_cleaned.csv|stations_sonde_positions.csv|testing.csv|correlation/app.R|Artisanal Fish Statistics|cleat_data|FISH STAT

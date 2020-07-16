@@ -12,6 +12,8 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 require(tidyverse)
 require(sf)
+require(oce)
+require(magrittr)
 ```
 
 
@@ -24,7 +26,6 @@ stations = tibble(site = c("LTK", "LTM", "LT1", "LT2", "LT3", "LT4", "LT5", "LT6
                           -5.51419, -5.62357, -5.73875, -5.8524833))
 
 stations %>% write_csv("stations_sonde_positions.csv")
-
 stations 
 ```
 
@@ -239,10 +240,137 @@ sonde.dataset.clean = sonde.dataset %>%
   select(site,lon,lat, date = 6, time = 7, depth_m, pressure_psi = 29, cast, ph = 13, ph_mv = 14, 
          orp_mv = 15, chlorophyll_rfu = 17, chlorophyll_mgl = 18, bga_pc_rfu =19, bga_pc_mgl = 20,  
          temperature = 21, conductivity = 22, salinity = 24, tds_mgl =26, do_percent_sat = 27, do_mgl = 28)%>%
-  filter(depth_m >=0) %>% arrange(date, site, cast)
+  separate(col = time, into = c("a", "time"), sep = " ") %>%
+  filter(depth_m >=0) %>% arrange(date, site, cast) %>% 
+  # unite(col = "datetime", c("date", "time"), sep = " ") %>% 
+  # mutate(datetime = lubridate::ymd_hms(datetime))%>%
+  select(-a)
+
+# sonde.dataset.clean %>% 
+#   write_csv("sonde_dataset_cleaned.csv")
 ```
 
 ```{r}
-sonde.dataset.clean 
+sonde.dataset.clean %>%
+  group_by(site, date) %>%
+  summarise(index = which.max(depth_m))
+```
+
+```{r}
+sonde.dataset.clean %>%
+  filter(site == "LT1") %>% distinct(lubridate::as_date(datetime))
+```
+## Working on the dataset
+```{r}
+stations = read_csv("stations_sonde_positions.csv")
+sonde.dataset = read_csv("sonde_dataset_cleaned.csv")
+```
+
+```{r}
+cast.tb = sonde.dataset %>% 
+  filter(cast == "downcast") %>%
+  group_by(site) %>%
+  arrange(date,depth_m)
+
+
+
+station = cast.tb %>% filter(date == lubridate::ymd("2015-05-28") & site == "LTK")
+
+cast = station %$%
+  as.ctd(salinity = salinity, temperature = temperature, pressure = depth_m, conductivity = conductivity,
+    units=list(salinity=list(unit=expression(), scale="PSS-78"),
+               temperature=list(unit=expression(degree*C), scale="ITS-90"),
+               pressure=list(unit=expression(dbar), scale=""),
+               conductivity=list(unit=expression(msi), scale="")))
+
+cast = cast %>% 
+  oceSetData(name = "oxygen", value = station$do_mgl, unit = expression("mgl"))%>% 
+  oceSetData(name = "ph", value = station$ph, unit = expression())%>% 
+  oceSetData(name = "tds", value = station$tds_mgl, unit = expression("mgl")) %>%
+  oceSetMetadata(name = "insitute", value = "Tafiri", note = "Data from Sonde Instrument") %>%
+  oceSetMetadata(name = "longitude", value = station$lon[1])%>%
+  oceSetMetadata(name = "latitude", value = station$lat[1])%>%
+  oceSetMetadata(name = "station", value = station$site[1]) %>%
+  oceSetMetadata(name = "startTime", value = paste(cast.tb$date[1], cast.tb$time[1]) %>% lubridate::as_datetime()) %>%
+  oceSetMetadata(name = "ship", value = "Mv. Echo")  %>%
+  oceSetMetadata(name = "cruise", value = "CLEAT") %>%
+  oceSetMetadata(name = "ship", value = "Mv. Echo")  %>%
+  oceSetMetadata(name = "address", value = "Box 90") %>%
+  oceSetMetadata(name = "date", value = station$date[1]) %>%
+  oceSetMetadata(name = "scientist", value = "Ismael Kimirei, Prisca Mziray, Huruma Mgana, Athanasio Mbonde, Tumaini Kamulali, Ezekiel Oywaya, Ibrahim Shabani, Antony Kalangali, Dickson Kente, Lovete Mwansasu, Julius Assam, Julieth Basil, Omary Kashuhu")%>%
+  oceSetMetadata(name = "deploymentType", value = "profile")%>%
+  oceSetMetadata(name = "type", value = "ctd")  %>%
+  ctdDecimate(p = 2)
+
+
+# cast %>% plot()
+```
+
+```{r}
+cast.tb = sonde.dataset %>% 
+  filter(cast == "downcast") %>%
+  group_by(site) %>%
+  arrange(date,depth_m)
+
+site.frequency = cast.tb %>% distinct(date, site) %>% count(site)
+```
+
+
+```{r}
+
+index = seq(1000,11000, length.out = nrow(site.frequency))
+
+cast.list = list()
+
+for (m in 1:nrow(site.frequency)) {
+  
+  data = cast.tb %>% filter(site == site.frequency$site[m])
+  
+  date.loop = data %>% distinct(date)%>% pull(date)
+  
+  for (n in 1:length(date.loop)){
+    
+    station = data %>% filter(date == date.loop[n] )
+    
+      cast = station %$%
+        as.ctd(salinity = salinity, temperature = temperature, pressure = depth_m, 
+               conductivity = conductivity,
+               units=list(salinity=list(unit=expression(), scale="PSS-78"),
+                 temperature=list(unit=expression(degree*C), scale="ITS-90"),
+                 pressure=list(unit=expression(dbar), scale=""),
+                 conductivity=list(unit=expression(msi), scale="")))
+  
+    cast.list[[index[m] + n]] = cast %>% 
+      oceSetData(name = "oxygen", value = station$do_mgl, unit = expression("mgl"))%>% 
+      oceSetData(name = "ph", value = station$ph, unit = expression())%>% 
+      oceSetData(name = "tds", value = station$tds_mgl, unit = expression("mgl")) %>%
+      oceSetMetadata(name = "insitute", value = "Tafiri", note = "Data from Sonde Instrument") %>%
+      oceSetMetadata(name = "longitude", value = station$lon[1])%>%
+      oceSetMetadata(name = "latitude", value = station$lat[1])%>%
+      oceSetMetadata(name = "station", value = station$site[1]) %>%
+      oceSetMetadata(name = "startTime", 
+                     value = paste(station$date[1], station$time[1]) %>% lubridate::as_datetime()) %>%
+      oceSetMetadata(name = "cruise", value = "CLEAT") %>%
+      oceSetMetadata(name = "ship", value = "Rv. Echo")  %>%
+      oceSetMetadata(name = "address", value = "Box 90") %>%
+      oceSetMetadata(name = "date", value = station$date[1]) %>%
+      oceSetMetadata(name = "scientist", value = "Ismael Kimirei, Prisca Mziray, Huruma Mgana, Athanasio Mbonde, Tumaini Kamulali, Ezekiel Oywaya, Ibrahim Shabani, Antony Kalangali, Dickson Kente, Lovete Mwansasu, Julius Assam, Julieth Basil, Omary Kashuhu")%>%
+  oceSetMetadata(name = "deploymentType", value = "profile")%>%
+  oceSetMetadata(name = "type", value = "ctd")  %>%
+  ctdDecimate(p = 2)
+      
+    
+
+      }
+
+
+}
+
+cast.list.clean = Filter(Negate(is.null), cast.list)
+```
+
+
+```{r}
+
 ```
 
